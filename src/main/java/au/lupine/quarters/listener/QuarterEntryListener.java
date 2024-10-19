@@ -79,49 +79,31 @@ public class QuarterEntryListener implements Listener {
     }
 
 private void sendEntryNotification(Quarter quarter, Resident resident) {
-    List<Component> components = new ArrayList<>();
+    // Components for the subtitle (lower title) only
+    Component quarterName = Component.text(quarter.getName(), TextColor.color(quarter.getColour().getRGB()));
+    Component comma = Component.text(", ", NamedTextColor.GRAY); // Gray comma
 
-    Component name = Component.text(quarter.getName(), TextColor.color(quarter.getColour().getRGB()))
-                              .clickEvent(ClickEvent.runCommand("/quarters:q here " + quarter.getUUID()));
-    Component owner = quarter.hasOwner() 
-                      ? ConfigManager.getFormattedName(quarter.getOwner(), null) 
-                      : Component.text("Unowned", NamedTextColor.GRAY);
-    Component type = Component.text(quarter.getType().getCommonName(), NamedTextColor.GRAY);
+    // Get the town name for the lower title
+    String townName = resident.hasTown() ? resident.getTownOrNull().getName() : "Unknown Town";
+    Component townNameComponent = Component.text(townName, NamedTextColor.GREEN); // Green town name
 
-    components.add(name);
-    components.add(owner);
-    components.add(type);
+    // Join the quarter name and town name with a gray comma to form the lower title
+    Component subtitle = quarterName.append(comma).append(townNameComponent);
 
-    if (quarter.isForSale()) {
-        Component price = QuartersMessaging.OPEN_SQUARE_BRACKET
-                .append(Component.text(TownyEconomyHandler.getFormattedBalance(quarter.getPrice()), NamedTextColor.GRAY))
-                .append(QuartersMessaging.CLOSED_SQUARE_BRACKET)
-                .hoverEvent(Component.text("Click to claim!", NamedTextColor.GRAY))
-                .clickEvent(ClickEvent.runCommand("/quarters:q claim " + quarter.getUUID()));
-
-        components.add(price);
-    }
-
-    // Join the components with a separator
-    JoinConfiguration jc = JoinConfiguration.separator(Component.text(" - ", TextColor.color(QuartersMessaging.PLUGIN_COLOUR.getRGB())));
-    Component notification = Component.join(jc, components);
-
-    // Retrieve the notification type (Action bar, Chat, or Title)
+    // Get the player's notification type (Action Bar, Chat, or Title)
     EntryNotificationType notificationType = ResidentMetadataManager.getInstance().getEntryNotificationType(resident);
 
     // Get the player
     Player player = resident.getPlayer();
     if (player == null) return;
 
-    // Send the notification based on the type
+    // Handle the different notification types
     switch (notificationType) {
-        case ACTION_BAR -> player.sendActionBar(notification);
-        case CHAT -> QuartersMessaging.sendMessage(player, notification);
+        case ACTION_BAR -> player.sendActionBar(subtitle); // Send only the lower title in the action bar
+        case CHAT -> QuartersMessaging.sendMessage(player, subtitle); // Send lower title in chat
         case TITLE -> {
-            // Send Title and Subtitle (lower title)
-            Component title = Component.text("Welcome to " + quarter.getName(), TextColor.color(quarter.getColour().getRGB()));
-            Component subtitle = owner; // Display the owner's name or "Unowned" as the lower title
-            player.showTitle(net.kyori.adventure.title.Title.title(title, subtitle));
+            // Send only the lower title (no main title)
+            player.showTitle(net.kyori.adventure.title.Title.title(Component.empty(), subtitle));
         }
     }
 }
